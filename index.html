@@ -1,0 +1,135 @@
+<?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+session_start();
+
+/* ===== DATABASE ===== */
+try {
+    $db = new PDO("sqlite:lonjezo.db");
+} catch (Exception $e) {
+    die("Database Error: " . $e->getMessage());
+}
+
+/* ===== LOGIC & AUTH (Condensed) ===== */
+$page = $_GET['page'] ?? 'login';
+$logo_path = "logo.png"; // RENAME your logo file to 'logo.png' in your folder
+
+// Login Logic
+if($page=="login" && isset($_POST['login'])){
+    $u = $db->prepare("SELECT * FROM users WHERE username=?");
+    $u->execute([$_POST['username']]);
+    $user = $u->fetch();
+    if($user && password_verify($_POST['password'],$user['password'])){
+        $_SESSION['user']=$user;
+        header("Location:?page=dashboard"); exit;
+    } else $error="Invalid login";
+}
+
+// Logout
+if($page=="logout"){ session_destroy(); header("Location:?"); exit; }
+
+/* ===== AUTH GUARD ===== */
+if(!in_array($page,['login','register','reset']) && !isset($_SESSION['user'])){
+    header("Location:?"); exit;
+}
+$role = $_SESSION['user']['role'] ?? '';
+?>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>LONJEZO ONLINE ACADEMY</title>
+    <style>
+        :root { --blue: #0b2c5f; --gold: #f5b400; --bg: #f4f6fb; }
+        body { margin:0; font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); }
+        
+        /* Fixed Sidebar for Desktop, Stacked for Mobile */
+        .sidebar { width: 240px; height: 100vh; position: fixed; background: var(--blue); color: #fff; padding-top: 20px; transition: 0.3s; z-index: 1000; }
+        .sidebar img { width: 140px; display: block; margin: 0 auto 20px; }
+        .sidebar a { display: block; padding: 15px 25px; color: #fff; text-decoration: none; border-left: 4px solid transparent; }
+        .sidebar a:hover { background: rgba(255,255,255,0.1); border-left: 4px solid var(--gold); }
+        
+        /* Main Content Area */
+        .main-wrapper { margin-left: 240px; transition: 0.3s; }
+        .topbar { background: #fff; padding: 15px 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .content { padding: 30px; }
+
+        /* Responsive Layout */
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; height: auto; position: relative; }
+            .main-wrapper { margin-left: 0; }
+            .hero { flex-direction: column-reverse; text-align: center; }
+            .hero img { margin-bottom: 20px; }
+        }
+
+        /* Hero & Cards */
+        .hero { background: var(--blue); color: #fff; padding: 40px; border-radius: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .hero h2 { margin: 0; font-size: 24px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-top: 30px; }
+        .card { background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); text-align: center; }
+        
+        /* Form Styling */
+        .auth-box { max-width: 400px; margin: 50px auto; background: #fff; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); text-align: center; }
+        .auth-box img { width: 180px; margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: var(--gold); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<?php if($page=="login"){ ?>
+    <div class="auth-box">
+        <img src="<?= $logo_path ?>" alt="Lonjezo Logo">
+        <form method="POST">
+            <input name="username" placeholder="Username" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <button name="login">LOGIN</button>
+        </form>
+        <p style="font-size: 14px; margin-top: 20px;">
+            <a href="?page=register">Register</a> | <a href="?page=reset">Forgot Password?</a>
+        </p>
+        <p style="color:red"><?= $error ?? "" ?></p>
+    </div>
+
+<?php } else { ?>
+
+    <div class="sidebar">
+        <img src="<?= $logo_path ?>" alt="Logo">
+        <a href="?page=dashboard">Dashboard</a>
+        <?php if($role=="admin"){ ?> <a href="?page=users">Manage Users</a> <?php } ?>
+        <a href="?page=profile">My Profile</a>
+        <a href="?page=logout" style="color: #ff6b6b;">Logout</a>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="topbar">
+            <strong>LONJEZO ONLINE ACADEMY</strong>
+            <span>User: <?= htmlspecialchars($_SESSION['user']['username']) ?></span>
+        </div>
+
+        <div class="content">
+            <?php if($page=="dashboard"){ ?>
+                <div class="hero">
+                    <div>
+                        <h2>Welcome to Lonjezo Portal</h2>
+                        <p>You are logged in as <strong><?= strtoupper($role) ?></strong>. Access your academy resources below.</p>
+                    </div>
+                    <img src="<?= $logo_path ?>" height="100" style="filter: brightness(0) invert(1);">
+                </div>
+
+                <div class="grid">
+                    <div class="card"><h3>📚</h3> Courses</div>
+                    <div class="card"><h3>📝</h3> Assignments</div>
+                    <div class="card"><h3>📊</h3> Performance</div>
+                </div>
+            <?php } ?>
+            
+            </div>
+    </div>
+
+<?php } ?>
+
+</body>
+  </html>
+    
